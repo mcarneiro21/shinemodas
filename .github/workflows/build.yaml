@@ -1,0 +1,82 @@
+name: Build GitHub Action
+run-name: Build GitHub Action
+
+permissions:
+  id-token: write
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile_path:
+        required: true
+        type: string
+        description: The path to the Dockerfile
+      dockerfile_context:
+        required: true
+        type: string
+        description: The context directory for the Dockerfile
+      dockerfile_target:
+        required: true
+        type: string
+        description: The target environment for the Dockerfile
+    outputs:
+      docker_tag:
+        description: "The docker_tag output string"
+        value: ${{ jobs.build.outputs.docker_tag }}
+      docker_repository:
+        description: "The docker_repository output string"
+        value: ${{ jobs.build.outputs.docker_repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      docker_tag: ${{ steps.meta.outputs.version }}
+      docker_repository: ${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr_repository }}
+
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ensure ECR Repository Exists
+        id: create-ecr-repository
+        run: |
+          if ! aws ecr describe-repositories --repository-names ${{ inputs.ecr_repository }} 2>/dev/null; then
+            echo "ECR repository not found. Creating repository: ${{ inputs.ecr_repository }}"
+            aws ecr create-repository --repository-name ${{ inputs.ecr_repository }}
+          else
+            echo "ECR repository already exists: ${{ inputs.ecr_repository }}"
+          fi
+          echo "repository=${{ inputs.ecr_repository }}" >> $GITHUB_OUTPUT
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr_repository }}
+          tags: |
+            type=sha,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64
+          target: ${{ inputs.dockerfile_target }}
+          context: ${{ inputs.dockerfile_context }}
+          file: ${{ inputs.dockerfile_path }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
