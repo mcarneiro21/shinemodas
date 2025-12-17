@@ -16,6 +16,9 @@ jobs:
     outputs:
       docker_tag: ${{ steps.meta.outputs.version }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -35,11 +38,9 @@ jobs:
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/shinemodas
           tags: |
-            type=sha,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
+            type=sha,format=short
+            type=ref,event=branch
+            latest
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -50,37 +51,35 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          
+
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       HELM_PATH: apps/shinemodas
       DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/shinemodas
-      VERSION: ${{ needs.build.outputs.docker_tag }}
+      VERSION: ${{ needs.build.outputs.docker_tag }} 
       APPLICATION: shinemodas
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_CONTENT }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
         with:
-          token: ${{ secrets.ACCESS_TOKEN_HELM }}
-
-      - name: Setup Git Configuration
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-
-      - name: Create Folder
-        run: |
-          mkdir -p "$HELM_PATH"
-
-      - name: Write kubeconfig
-        run: echo "${{ secrets.KUBECONFIG_CONTENT }}" > ${{ runner.temp }}/kubeconfig
+          version: v3.11.1
 
       - name: Helm upgrade
-        env:
-          KUBECONFIG: ${{ runner.temp }}/kubeconfig
         run: |
-          helm upgrade $APPLICATION "$HELM_PATH" \
+          echo "Deploying version: $VERSION"
+
+          helm upgrade --install $APPLICATION ./$HELM_PATH \
           --set image.repository=$DOCKER_IMAGE \
-          --set image.tag=$VERSION
+          --set image.tag=$VERSION \
+          --wait # Espera os pods ficarem Ready antes de dar sucesso
