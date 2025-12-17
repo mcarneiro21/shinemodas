@@ -1,0 +1,10 @@
+image:
+  repository: mcarneiro21/shinemodas
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: NodePort
+  port: 80
+  targetPort: 80
+  nodePort: 8080
