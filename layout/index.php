@@ -4,20 +4,21 @@ declare(strict_types=1);
 
 function h(string $value): string
 {
-    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+  return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 }
 
 function renderNavbar(string $active): string
 {
-    $is = fn(string $k) => $active === $k ? 'active' : '';
+  $is = fn(string $k) => $active === $k ? 'active' : '';
 
-    return '
+  return '
   <header class="navbar">
     <div class="navbar-container">
       <nav class="navbar-menu">
         <a href="./index.php" class="' . $is('home') . '">Home</a>
         <a href="./sobre.php" class="' . $is('sobre') . '">Sobre</a>
         <a href="./produtos.php" class="' . $is('produtos') . '">Produtos</a>
+        <a href="./contato.php" class="' . $is('produtos') . '">Contato</a>
       </nav>
 
       <div class="navbar-logo">
@@ -31,7 +32,7 @@ function renderNavbar(string $active): string
 
 function renderFooter(): string
 {
-    return '
+  return '
   <footer>
     <h3>Moda com respeito, estilo e elegância</h3>
     <h2>http://www.shinemodas.com.br</h2>
