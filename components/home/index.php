@@ -5,7 +5,7 @@ declare(strict_types=1);
 function homeConteudo(): array
 {
     return [
-        'title' => 'Moda Plus Siz',
+        'title' => 'Moda Plus Size',
         'sections' => [
             [
                 'type' => 'image',
